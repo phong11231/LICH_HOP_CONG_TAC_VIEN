@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch họp cộng tác viên</title>
+<style>
+  :root{
+    --primary:#2f6fed;
+    --primary-dark:#1c4fc0;
+    --ink:#1a1f2b;
+    --muted:#6b7280;
+    --line:#e2e5ea;
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --free:#2fbf71;
+    --free-bg:#e6f8ee;
+    --valid:#2f6fed;
+    --valid-bg:#e8f0fe;
+    --danger:#e5484d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+  }
+  header{
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    padding:16px 20px;
+    position:sticky;
+    top:0;
+    z-index:20;
+  }
+  header h1{
+    margin:0 0 10px;
+    font-size:20px;
+  }
+  .tabs{
+    display:flex;
+    gap:8px;
+  }
+  .tab-btn{
+    border:1px solid var(--line);
+    background:#fff;
+    padding:8px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:14px;
+    font-weight:600;
+    color:var(--muted);
+  }
+  .tab-btn.active{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:#fff;
+  }
+  main{
+    max-width:1100px;
+    margin:0 auto;
+    padding:20px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px;
+    margin-bottom:20px;
+  }
+  .card h2{
+    margin-top:0;
+    font-size:16px;
+  }
+  label{font-size:14px; font-weight:600; color:var(--ink);}
+  input[type=text], input[type=password]{
+    width:100%;
+    max-width:360px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    margin-top:6px;
+  }
+  .btn{
+    display:inline-block;
+    padding:10px 18px;
+    border-radius:8px;
+    border:none;
+    background:var(--primary);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn:hover{background:var(--primary-dark);}
+  .btn.secondary{
+    background:#fff;
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  .btn.danger{
+    background:var(--danger);
+  }
+  .btn.small{
+    padding:4px 10px;
+    font-size:12px;
+  }
+  .grid-wrap{
+    overflow-x:auto;
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  table.grid{
+    border-collapse:collapse;
+    width:100%;
+    min-width:700px;
+  }
+  table.grid th, table.grid td{
+    border:1px solid var(--line);
+    text-align:center;
+    padding:0;
+  }
+  table.grid th{
+    background:#f0f3f9;
+    font-size:12px;
+    padding:8px 4px;
+    white-space:nowrap;
+  }
+  table.grid td.hour-cell{
+    background:#f8f9fc;
+    font-size:12px;
+    color:var(--muted);
+    padding:6px 8px;
+    white-space:nowrap;
+  }
+  table.grid td.slot{
+    width:60px;
+    height:32px;
+    cursor:pointer;
+    user-select:none;
+  }
+  table.grid td.slot.on{
+    background:var(--free-bg);
+  }
+  table.grid td.slot.on::after{
+    content:"✓";
+    color:var(--free);
+    font-weight:700;
+  }
+  .day-select-btn{
+    font-size:11px;
+    border:none;
+    background:none;
+    color:var(--primary);
+    cursor:pointer;
+    text-decoration:underline;
+    margin-top:4px;
+    display:block;
+  }
+  .row-actions{
+    display:flex;
+    gap:12px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+  #tab-admin{display:none;}
+  .name-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+  .name-list li{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .name-list li:last-child{border-bottom:none;}
+  .result-day{
+    margin-bottom:14px;
+  }
+  .result-day h3{
+    margin:0 0 6px;
+    font-size:14px;
+  }
+  .result-slots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .result-slot{
+    background:var(--valid-bg);
+    color:var(--valid-dark, #1c4fc0);
+    border:1px solid var(--valid);
+    border-radius:6px;
+    padding:4px 10px;
+    font-size:13px;
+    font-weight:600;
+  }
+  .empty-msg{
+    color:var(--muted);
+    font-size:13px;
+    font-style:italic;
+  }
+  .status-msg{
+    font-size:13px;
+    margin-top:8px;
+  }
+  .status-msg.ok{color:var(--free);}
+  .status-msg.err{color:var(--danger);}
+  .admin-pass-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📅 Lịch rảnh cộng tác viên</h1>
+  <div class="tabs">
+    <button class="tab-btn active" id="btn-tab-form" onclick="showTab('form')">Điền lịch rảnh</button>
+    <button class="tab-btn" id="btn-tab-admin" onclick="showTab('admin')">Xem tổng hợp</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- TAB: FORM -->
+  <div id="tab-form">
+    <div class="card">
+      <h2>Thông tin của bạn</h2>
+      <label for="ctv-name">Họ tên cộng tác viên</label><br>
+      <input type="text" id="ctv-name" placeholder="Nhập họ tên...">
+      <div class="hint">Điền lại đúng tên cũ nếu muốn cập nhật lịch rảnh của mình.</div>
+    </div>
+
+    <div class="card">
+      <h2>Tick vào khung giờ bạn RẢNH</h2>
+      <div class="hint">Bấm vào từng ô, hoặc bấm "Chọn cả ngày" ở đầu cột để chọn nhanh.</div>
+      <div class="grid-wrap">
+        <table class="grid" id="form-grid"></table>
+      </div>
+      <div class="row-actions">
+        <button class="btn" onclick="submitAvailability()">💾 Lưu lịch rảnh</button>
+        <button class="btn secondary" onclick="clearFormGrid()">Bỏ chọn tất cả</button>
+      </div>
+      <div class="status-msg" id="form-status"></div>
+    </div>
+  </div>
+
+  <!-- TAB: ADMIN -->
+  <div id="tab-admin">
+    <div class="card">
+      <h2>⏰ Thời gian họp hợp lệ (tất cả cùng rảnh)</h2>
+      <button class="btn secondary" onclick="loadAndCompute()">🔄 Tải lại dữ liệu</button>
+      <div id="result-area" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Danh sách cộng tác viên đã điền</h2>
+      <div class="admin-pass-row">
+        <label for="admin-pass" style="margin:0;">Mật khẩu quản trị:</label>
+        <input type="password" id="admin-pass" placeholder="Nhập mật khẩu để hiện nút xóa" style="max-width:220px;" oninput="checkAdminPass()">
+      </div>
+      <ul class="name-list" id="name-list" style="margin-top:14px;"></ul>
+    </div>
+  </div>
+
+</main>
+
+<!-- Firebase (compat) SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+/* =========================================================
+   CẤU HÌNH FIREBASE - THAY BẰNG CONFIG CỦA BẠN
+   (Tạo project miễn phí tại https://console.firebase.google.com
+    -> Project settings -> General -> Your apps -> Web app -> copy config)
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COLLECTION_NAME = "thoigianhop_responses";
+const ADMIN_PASSWORD = "Need";
+
+/* =========================================================
+   DỮ LIỆU NGÀY / GIỜ
+   ========================================================= */
+const DAYS = [
+  { key: "T2", label: "Thứ 2" },
+  { key: "T3", label: "Thứ 3" },
+  { key: "T4", label: "Thứ 4" },
+  { key: "T5", label: "Thứ 5" },
+  { key: "T6", label: "Thứ 6" },
+  { key: "T7", label: "Thứ 7" },
+  { key: "CN", label: "Chủ nhật" }
+];
+const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0..23
+
+function hourLabel(h) {
+  return `${h}h - ${h + 1}h`;
+}
+
+function emptySlots() {
+  const slots = {};
+  DAYS.forEach(d => { slots[d.key] = new Array(24).fill(false); });
+  return slots;
+}
+
+let formSlots = emptySlots();
+
+/* =========================================================
+   VẼ BẢNG CHO TAB FORM
+   ========================================================= */
+function buildFormGrid() {
+  const table = document.getElementById("form-grid");
+  let html = "<thead><tr><th>Giờ</th>";
+  DAYS.forEach(d => {
+    html += `<th>${d.label}<button type="button" class="day-select-btn" onclick="toggleWholeDay('${d.key}')">Chọn cả ngày</button></th>`;
+  });
+  html += "</tr></thead><tbody>";
+  HOURS.forEach(h => {
+    html += `<tr><td class="hour-cell">${hourLabel(h)}</td>`;
+    DAYS.forEach(d => {
+      html += `<td class="slot" data-day="${d.key}" data-hour="${h}" onclick="toggleSlot(this)"></td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  table.innerHTML = html;
+}
+
+function toggleSlot(cell) {
+  const day = cell.dataset.day;
+  const hour = parseInt(cell.dataset.hour, 10);
+  const newVal = !formSlots[day][hour];
+  formSlots[day][hour] = newVal;
+  cell.classList.toggle("on", newVal);
+}
+
+function toggleWholeDay(dayKey) {
+  const cells = document.querySelectorAll(`#form-grid td.slot[data-day="${dayKey}"]`);
+  const allOn = formSlots[dayKey].every(v => v);
+  const newVal = !allOn;
+  formSlots[dayKey] = new Array(24).fill(newVal);
+  cells.forEach(c => c.classList.toggle("on", newVal));
+}
+
+function clearFormGrid() {
+  formSlots = emptySlots();
+  document.querySelectorAll("#form-grid td.slot.on").forEach(c => c.classList.remove("on"));
+}
+
+/* =========================================================
+   LƯU LỊCH RẢNH LÊN FIRESTORE
+   ========================================================= */
+function sanitizeId(name) {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function submitAvailability() {
+  const nameInput = document.getElementById("ctv-name");
+  const statusEl = document.getElementById("form-status");
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    statusEl.textContent = "Vui lòng nhập họ tên trước khi lưu.";
+    statusEl.className = "status-msg err";
+    return;
+  }
+
+  const hasAnySlot = DAYS.some(d => formSlots[d.key].some(v => v));
+  if (!hasAnySlot) {
+    statusEl.textContent = "Vui lòng tick ít nhất một khung giờ rảnh.";
+    statusEl.className = "status-msg err";
+    return;
+  }
+
+  const docId = sanitizeId(name);
+  try {
+    await db.collection(COLLECTION_NAME).doc(docId).set({
+      name: name,
+      slots: formSlots,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.textContent = "Đã lưu lịch rảnh thành công!";
+    statusEl.className = "status-msg ok";
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Lỗi khi lưu dữ liệu: " + err.message;
+    statusEl.className = "status-msg err";
+  }
+}
+
+/* =========================================================
+   TAB ADMIN: TẢI DỮ LIỆU + TÍNH GIAO NHAU
+   ========================================================= */
+async function loadAndCompute() {
+  const resultArea = document.getElementById("result-area");
+  const nameList = document.getElementById("name-list");
+  resultArea.innerHTML = "<div class='hint'>Đang tải...</div>";
+  nameList.innerHTML = "";
+
+  let snapshot;
+  try {
+    snapshot = await db.collection(COLLECTION_NAME).get();
+  } catch (err) {
+    resultArea.innerHTML = `<div class="status-msg err">Lỗi khi tải dữ liệu: ${err.message}</div>`;
+    return;
+  }
+
+  const responses = [];
+  snapshot.forEach(doc => {
+    responses.push({ id: doc.id, ...doc.data() });
+  });
+
+  renderNameList(responses);
+  renderIntersection(responses);
+}
+
+function renderNameList(responses) {
+  const nameList = document.getElementById("name-list");
+  if (responses.length === 0) {
+    nameList.innerHTML = `<li class="empty-msg">Chưa có ai điền.</li>`;
+    return;
+  }
+  const isUnlocked = document.getElementById("admin-pass").value === ADMIN_PASSWORD;
+  nameList.innerHTML = responses.map(r => `
+    <li data-id="${r.id}">
+      <span>${escapeHtml(r.name)}</span>
+      ${isUnlocked ? `<button class="btn danger small" onclick="deleteResponse('${r.id}', '${escapeHtml(r.name).replace(/'/g, "\\'")}')">Xóa</button>` : ""}
+    </li>
+  `).join("");
+}
+
+function checkAdminPass() {
+  // vẽ lại danh sách để hiện/ẩn nút xóa
+  loadAndCompute();
+}
+
+async function deleteResponse(id, name) {
+  if (!confirm(`Xóa lịch rảnh của "${name}"?`)) return;
+  try {
+    await db.collection(COLLECTION_NAME).doc(id).delete();
+    loadAndCompute();
+  } catch (err) {
+    alert("Lỗi khi xóa: " + err.message);
+  }
+}
+
+function renderIntersection(responses) {
+  const resultArea = document.getElementById("result-area");
+
+  if (responses.length === 0) {
+    resultArea.innerHTML = `<div class="empty-msg">Chưa có cộng tác viên nào điền lịch rảnh.</div>`;
+    return;
+  }
+
+  let html = `<div class="hint" style="margin-bottom:10px;">Dựa trên ${responses.length} cộng tác viên đã điền.</div>`;
+  let anyValid = false;
+
+  DAYS.forEach(d => {
+    const validHours = [];
+    for (let h = 0; h < 24; h++) {
+      const allFree = responses.every(r => r.slots && r.slots[d.key] && r.slots[d.key][h]);
+      if (allFree) validHours.push(h);
+    }
+    const ranges = mergeConsecutive(validHours);
+    if (ranges.length > 0) anyValid = true;
+
+    html += `<div class="result-day"><h3>${d.label}</h3>`;
+    if (ranges.length === 0) {
+      html += `<div class="empty-msg">Không có khung giờ nào tất cả đều rảnh.</div>`;
+    } else {
+      html += `<div class="result-slots">` +
+        ranges.map(([s, e]) => `<span class="result-slot">${s}h - ${e}h</span>`).join("") +
+        `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  if (!anyValid) {
+    html = `<div class="status-msg err">Không tìm thấy khung giờ nào tất cả cộng tác viên đều rảnh.</div>` + html;
+  }
+
+  resultArea.innerHTML = html;
+}
+
+// gộp các giờ liên tiếp thành khoảng, vd [19,20,21] -> [[19,22]]
+function mergeConsecutive(hours) {
+  if (hours.length === 0) return [];
+  const ranges = [];
+  let start = hours[0];
+  let prev = hours[0];
+  for (let i = 1; i < hours.length; i++) {
+    if (hours[i] === prev + 1) {
+      prev = hours[i];
+    } else {
+      ranges.push([start, prev + 1]);
+      start = hours[i];
+      prev = hours[i];
+    }
+  }
+  ranges.push([start, prev + 1]);
+  return ranges;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* =========================================================
+   TAB SWITCH
+   ========================================================= */
+function showTab(tab) {
+  document.getElementById("tab-form").style.display = tab === "form" ? "block" : "none";
+  document.getElementById("tab-admin").style.display = tab === "admin" ? "block" : "none";
+  document.getElementById("btn-tab-form").classList.toggle("active", tab === "form");
+  document.getElementById("btn-tab-admin").classList.toggle("active", tab === "admin");
+  if (tab === "admin") loadAndCompute();
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+buildFormGrid();
+</script>
+
+</body>
+</html>
