@@ -177,14 +177,28 @@
     margin:0;
   }
   .name-list li{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
     padding:8px 10px;
     border-bottom:1px solid var(--line);
     font-size:14px;
   }
   .name-list li:last-child{border-bottom:none;}
+  .name-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .name-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .user-grid-wrap{
+    margin-top:10px;
+  }
+  .user-grid-wrap table.grid td.slot{
+    cursor:default;
+  }
   .result-day{
     margin-bottom:14px;
   }
@@ -263,7 +277,7 @@
   <!-- TAB: ADMIN -->
   <div id="tab-admin">
     <div class="card">
-      <h2>⏰ Thời gian họp hợp lệ (tất cả cùng rảnh)</h2>
+      <h2>⏰ Thời gian họp hợp lệ (≥ 70% cùng rảnh)</h2>
       <button class="btn secondary" onclick="loadAndCompute()">🔄 Tải lại dữ liệu</button>
       <div id="result-area" style="margin-top:14px;"></div>
     </div>
@@ -420,6 +434,8 @@ async function submitAvailability() {
 /* =========================================================
    TAB ADMIN: TẢI DỮ LIỆU + TÍNH GIAO NHAU
    ========================================================= */
+let lastResponses = [];
+
 async function loadAndCompute() {
   const resultArea = document.getElementById("result-area");
   const nameList = document.getElementById("name-list");
@@ -438,6 +454,7 @@ async function loadAndCompute() {
   snapshot.forEach(doc => {
     responses.push({ id: doc.id, ...doc.data() });
   });
+  lastResponses = responses;
 
   renderNameList(responses);
   renderIntersection(responses);
@@ -452,10 +469,47 @@ function renderNameList(responses) {
   const isUnlocked = document.getElementById("admin-pass").value === ADMIN_PASSWORD;
   nameList.innerHTML = responses.map(r => `
     <li data-id="${r.id}">
-      <span>${escapeHtml(r.name)}</span>
-      ${isUnlocked ? `<button class="btn danger small" onclick="deleteResponse('${r.id}', '${escapeHtml(r.name).replace(/'/g, "\\'")}')">Xóa</button>` : ""}
+      <div class="name-row">
+        <span>${escapeHtml(r.name)}</span>
+        <div class="name-actions">
+          <button class="btn secondary small" onclick="toggleUserGrid('${r.id}')">Xem lịch</button>
+          ${isUnlocked ? `<button class="btn danger small" onclick="deleteResponse('${r.id}', '${escapeHtml(r.name).replace(/'/g, "\\'")}')">Xóa</button>` : ""}
+        </div>
+      </div>
+      <div class="user-grid-wrap" id="grid-wrap-${r.id}" style="display:none;"></div>
     </li>
   `).join("");
+}
+
+function toggleUserGrid(id) {
+  const wrap = document.getElementById(`grid-wrap-${id}`);
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== "none";
+  if (isOpen) {
+    wrap.style.display = "none";
+    wrap.innerHTML = "";
+    return;
+  }
+  const r = lastResponses.find(x => x.id === id);
+  if (!r) return;
+  wrap.innerHTML = buildReadonlyGridHtml(r.slots);
+  wrap.style.display = "block";
+}
+
+function buildReadonlyGridHtml(slots) {
+  let html = `<div class="grid-wrap"><table class="grid"><thead><tr><th>Giờ</th>`;
+  DAYS.forEach(d => { html += `<th>${d.label}</th>`; });
+  html += `</tr></thead><tbody>`;
+  HOURS.forEach(h => {
+    html += `<tr><td class="hour-cell">${hourLabel(h)}</td>`;
+    DAYS.forEach(d => {
+      const on = slots && slots[d.key] && slots[d.key][h];
+      html += `<td class="slot${on ? " on" : ""}"></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  return html;
 }
 
 function checkAdminPass() {
@@ -481,31 +535,39 @@ function renderIntersection(responses) {
     return;
   }
 
-  let html = `<div class="hint" style="margin-bottom:10px;">Dựa trên ${responses.length} cộng tác viên đã điền.</div>`;
+  const THRESHOLD = 0.7;
+  const need = Math.ceil(responses.length * THRESHOLD);
+
+  let html = `<div class="hint" style="margin-bottom:10px;">Dựa trên ${responses.length} cộng tác viên đã điền. Tính hợp lệ khi có từ ${need}/${responses.length} người rảnh (≥ 70%).</div>`;
   let anyValid = false;
 
   DAYS.forEach(d => {
+    const freeCounts = [];
     const validHours = [];
     for (let h = 0; h < 24; h++) {
-      const allFree = responses.every(r => r.slots && r.slots[d.key] && r.slots[d.key][h]);
-      if (allFree) validHours.push(h);
+      const freeCount = responses.filter(r => r.slots && r.slots[d.key] && r.slots[d.key][h]).length;
+      freeCounts[h] = freeCount;
+      if (freeCount >= need) validHours.push(h);
     }
     const ranges = mergeConsecutive(validHours);
     if (ranges.length > 0) anyValid = true;
 
     html += `<div class="result-day"><h3>${d.label}</h3>`;
     if (ranges.length === 0) {
-      html += `<div class="empty-msg">Không có khung giờ nào tất cả đều rảnh.</div>`;
+      html += `<div class="empty-msg">Không có khung giờ nào đạt từ 70% người rảnh.</div>`;
     } else {
       html += `<div class="result-slots">` +
-        ranges.map(([s, e]) => `<span class="result-slot">${s}h - ${e}h</span>`).join("") +
+        ranges.map(([s, e]) => {
+          const minCount = Math.min(...freeCounts.slice(s, e));
+          return `<span class="result-slot">${s}h - ${e}h (${minCount}/${responses.length})</span>`;
+        }).join("") +
         `</div>`;
     }
     html += `</div>`;
   });
 
   if (!anyValid) {
-    html = `<div class="status-msg err">Không tìm thấy khung giờ nào tất cả cộng tác viên đều rảnh.</div>` + html;
+    html = `<div class="status-msg err">Không tìm thấy khung giờ nào đạt từ 70% cộng tác viên rảnh.</div>` + html;
   }
 
   resultArea.innerHTML = html;
